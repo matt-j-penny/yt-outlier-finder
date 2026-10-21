@@ -8,22 +8,19 @@
     "default_popup": "popup.html"
   },
   "options_page": "options.html",
-  "background": {
-    "service_worker": "background.js"
-  },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start"
     }
   ],
   "permissions": [
-    "storage",
-    "contextMenus",
-    "activeTab",
-    "scripting",
-    "downloads"
+    "storage"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
@@ -31,4 +28,3 @@
     "https://*/*"
   ]
 }
-

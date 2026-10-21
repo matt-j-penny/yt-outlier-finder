@@ -3,7 +3,7 @@
 Chrome extension that lets you:
 
 - Live-filter videos on any YouTube page (home, search, subscriptions, channels, etc.) by outlier score, subscriber count, and/or view count.
-- Send videos to a single **target webhook** (from the popup or right-click context menus on YouTube), including the video URL and the outlier multiplier detected on the page (if visible via vidIQ-style badges).
+- Send a video to a single **target webhook** from the popup.
 
 Use this to feed your own server, n8n workflow, Make.com scenario, database ingester, etc.
 
@@ -30,18 +30,11 @@ This works by parsing the DOM (vidIQ or similar extensions that add "12.4x" outl
 
 ## Sending Videos to Your Webhook
 
-### From the popup (manual)
+Open the popup, then:
+
 1. Paste a full YouTube watch URL.
 2. Click **Preview** (uses public oEmbed — no key needed).
 3. Click **Send to Webhook**.
-
-### From YouTube pages (recommended)
-Right-click any YouTube video link or on a watch page → **Send to Webhook**.
-
-The extension will:
-- Try to extract the outlier score visible near that video on the page (requires vidIQ — see note above).
-- Fetch the video title and thumbnail URL.
-- POST everything to your configured target webhook.
 
 ## Target Webhook Contract (what your server receives)
 
@@ -64,9 +57,9 @@ The extension will:
 - `videoURL`: the full watch URL.
 - `title`: the video title (fetched via YouTube oEmbed).
 - `thumbnailUrl`: the standard thumbnail URL.
-- `outlierMultiple`: a number (e.g. 5, 9.7, 42) if we could scrape it from vidIQ-style elements on the page, otherwise `null`.
+- `outlierMultiple`: always `null` for popup sends.
 
-Your server can respond with any JSON. If the response contains a top-level `url` (or `notionUrl` / `notion_url`), the success toast on the YouTube page will be made clickable.
+Your server can respond with any JSON. If the response contains a top-level `url` (or `notionUrl` / `notion_url`), the popup shows it as a clickable link.
 
 ## Configuration
 
