@@ -5,7 +5,12 @@
   "description": "Filter YouTube videos live by outlier score, subscribers, and views. Save videos, titles and thumbnails to Content OS inspiration.",
   "action": {
     "default_title": "YT Outlier Finder",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
   },
   "options_page": "options.html",
   "content_scripts": [
@@ -25,11 +30,19 @@
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://youtube.com/*",
-    "https://*/*",
-    "http://localhost/*"
+    "https://getcontentos.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*"
+  ]
 }

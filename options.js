@@ -21,8 +21,23 @@ function saveSettings() {
     return;
   }
 
-  chrome.storage.local.set({ contentOsBaseUrl, contentOsApiKey }, () => {
-    setMessage('Saved.');
+  let origin;
+  try {
+    origin = `${new URL(contentOsBaseUrl).origin}/*`;
+  } catch (e) {
+    setMessage('Enter a valid Content OS URL.', true);
+    return;
+  }
+
+  // Only the default Content OS host is granted at install; other hosts are asked for here
+  chrome.permissions.request({ origins: [origin] }, (granted) => {
+    if (!granted) {
+      setMessage(`Allow access to ${contentOsBaseUrl} so the extension can save to it.`, true);
+      return;
+    }
+    chrome.storage.local.set({ contentOsBaseUrl, contentOsApiKey }, () => {
+      setMessage('Saved.');
+    });
   });
 }
 
