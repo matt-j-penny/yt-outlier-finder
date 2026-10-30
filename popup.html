@@ -8,77 +8,77 @@
   </head>
   <body>
     <div id="app">
-      <h1>YT Outlier Finder</h1>
-      
-      <!-- Outlier Filter Section -->
-      <div class="filter-section">
-        <div class="filter-header">
+      <header>
+        <img src="icons/icon48.png" alt="">
+        <h1>YT Outlier Finder</h1>
+        <a href="#" id="openOptions" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
+      </header>
+
+      <h2>Filters</h2>
+      <div class="group">
+        <div class="filter-section">
           <label class="toggle-label">
-            <span>Filter by Outlier</span>
+            <span>Outlier score</span>
             <input type="checkbox" id="outlierToggle">
             <span class="toggle-switch"></span>
           </label>
-        </div>
-        <div id="sliderContainer" class="slider-container hidden">
-          <div class="slider-labels">
-            <span>Min Outlier:</span>
-            <span id="sliderValue">5x</span>
+          <div id="sliderContainer" class="slider-container hidden">
+            <div class="slider-labels">
+              <span>Minimum</span>
+              <span id="sliderValue">5x</span>
+            </div>
+            <input type="range" id="outlierSlider" min="1" max="100" value="5" step="1">
           </div>
-          <input type="range" id="outlierSlider" min="1" max="100" value="5" step="1">
         </div>
-      </div>
-      
-      <!-- Subscriber Filter Section -->
-      <div class="filter-section">
-        <div class="filter-header">
+        <div class="filter-section">
           <label class="toggle-label">
-            <span>Filter by Subscribers</span>
+            <span>Subscribers</span>
             <input type="checkbox" id="subToggle">
             <span class="toggle-switch"></span>
           </label>
-        </div>
-        <div id="subContainer" class="slider-container hidden">
-          <div class="sub-inputs">
-            <div class="sub-input-group">
-              <label for="subMin">Min</label>
-              <input type="text" id="subMin" placeholder="e.g. 10K" value="0">
+          <div id="subContainer" class="slider-container hidden">
+            <div class="sub-inputs">
+              <div class="sub-input-group">
+                <label for="subMin">Min</label>
+                <input type="text" id="subMin" placeholder="e.g. 10K" value="0">
+              </div>
+              <div class="sub-input-group">
+                <label for="subMax">Max</label>
+                <input type="text" id="subMax" placeholder="e.g. 1M" value="">
+              </div>
             </div>
-            <div class="sub-input-group">
-              <label for="subMax">Max</label>
-              <input type="text" id="subMax" placeholder="e.g. 1M" value="">
-            </div>
+            <div class="sub-hint">Use K for thousands, M for millions</div>
           </div>
-          <div class="sub-hint">Use K for thousands, M for millions (e.g. 500K, 2M)</div>
         </div>
-      </div>
-
-      <!-- Views Filter Section -->
-      <div class="filter-section">
-        <div class="filter-header">
+        <div class="filter-section">
           <label class="toggle-label">
-            <span>Filter by Views</span>
+            <span>Views</span>
             <input type="checkbox" id="viewToggle">
             <span class="toggle-switch"></span>
           </label>
-        </div>
-        <div id="viewContainer" class="slider-container hidden">
-          <div class="sub-inputs">
-            <div class="sub-input-group">
-              <label for="viewMin">Min</label>
-              <input type="text" id="viewMin" placeholder="e.g. 50K" value="0">
+          <div id="viewContainer" class="slider-container hidden">
+            <div class="sub-inputs">
+              <div class="sub-input-group">
+                <label for="viewMin">Min</label>
+                <input type="text" id="viewMin" placeholder="e.g. 50K" value="0">
+              </div>
+              <div class="sub-input-group">
+                <label for="viewMax">Max</label>
+                <input type="text" id="viewMax" placeholder="e.g. 2M" value="">
+              </div>
             </div>
-            <div class="sub-input-group">
-              <label for="viewMax">Max</label>
-              <input type="text" id="viewMax" placeholder="e.g. 2M" value="">
-            </div>
+            <div class="sub-hint">Use K for thousands, M for millions</div>
           </div>
-          <div class="sub-hint">Use K for thousands, M for millions (e.g. 100K, 1.5M)</div>
         </div>
       </div>
-      
-      <label for="urlInput">YouTube URL</label>
-      <input id="urlInput" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
-      <button id="previewBtn">Preview</button>
+
+      <h2>Save a video</h2>
+      <div class="url-row">
+        <input id="urlInput" type="url" placeholder="Paste a YouTube URL" aria-label="YouTube URL" autocomplete="off" />
+        <button id="previewBtn">Preview</button>
+      </div>
 
       <div id="preview" class="hidden">
         <img id="thumb" alt="Thumbnail" />
@@ -87,9 +87,7 @@
       </div>
 
       <div id="message" role="status"></div>
-      <div class="hint">
-        Add your Content OS API key in <a href="#" id="openOptions">Options</a>.
-      </div>
+      <p class="hint">Tip: hover any video on YouTube and click <strong>Save</strong>, or right-click to save just the title or thumbnail.</p>
     </div>
     <script src="popup.js"></script>
   </body>

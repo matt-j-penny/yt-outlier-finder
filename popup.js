@@ -18,7 +18,7 @@ async function fetchYouTubeMeta(youtubeUrl) {
 function setMessage(text, isError = false) {
   const msg = document.getElementById('message');
   msg.textContent = text;
-  msg.style.color = isError ? '#b91c1c' : '#374151';
+  msg.style.color = isError ? 'var(--accent)' : 'var(--muted)';
 }
 
 function saveVideo(videoURL) {
