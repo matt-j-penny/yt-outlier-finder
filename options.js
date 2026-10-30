@@ -1,3 +1,5 @@
+const DEFAULT_BASE_URL = 'https://getcontentos.vercel.app';
+
 function setMessage(text, isError = false) {
   const msg = document.getElementById('message');
   msg.textContent = text;
@@ -5,26 +7,26 @@ function setMessage(text, isError = false) {
 }
 
 function loadSettings() {
-  chrome.storage.sync.get(['targetWebhookUrl'], (items) => {
-    const el = document.getElementById('targetWebhookUrl');
-    if (el) el.value = items.targetWebhookUrl || '';
+  chrome.storage.local.get(['contentOsBaseUrl', 'contentOsApiKey'], (items) => {
+    document.getElementById('contentOsBaseUrl').value = items.contentOsBaseUrl || DEFAULT_BASE_URL;
+    document.getElementById('contentOsApiKey').value = items.contentOsApiKey || '';
   });
 }
 
 function saveSettings() {
-  const targetWebhookUrl = document.getElementById('targetWebhookUrl').value.trim();
+  const contentOsBaseUrl = document.getElementById('contentOsBaseUrl').value.trim().replace(/\/+$/, '') || DEFAULT_BASE_URL;
+  const contentOsApiKey = document.getElementById('contentOsApiKey').value.trim();
+  if (contentOsApiKey && !contentOsApiKey.startsWith('cos_')) {
+    setMessage('Content OS API keys start with cos_.', true);
+    return;
+  }
 
-  chrome.storage.sync.set({ targetWebhookUrl }, () => {
+  chrome.storage.local.set({ contentOsBaseUrl, contentOsApiKey }, () => {
     setMessage('Saved.');
   });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
-  const saveBtn = document.getElementById('save');
-  if (saveBtn) saveBtn.addEventListener('click', saveSettings);
+  document.getElementById('save').addEventListener('click', saveSettings);
 });
-
-
-
-

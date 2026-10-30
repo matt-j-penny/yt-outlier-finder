@@ -18,30 +18,24 @@
   <body>
     <h1>YT Outlier Finder Settings</h1>
 
-    <h2 style="margin-top: 0; font-size: 16px;">Target Webhook</h2>
-    <p class="tip" style="margin-top: 0;">This webhook receives video data when you use the context menus on YouTube or the Send button in the popup. Paste the URL of your server/webhook endpoint.</p>
+    <h2 style="margin-top: 0; font-size: 16px;">Content OS</h2>
+    <p class="tip" style="margin-top: 0;">Saved videos, titles and thumbnails go to your Content OS Inspiration page. Create an API key on the Content OS <strong>API</strong> page and paste it here.</p>
 
     <p class="tip" style="margin-top: 8px; color: #b91c1c;">
-      <strong>Required:</strong> The <a href="https://chromewebstore.google.com/detail/vidiq-vision-for-youtube/pachckjkecffpdphbpmfolblodfkgbhl" target="_blank">vidIQ Vision for YouTube</a> Chrome extension must be installed for reliable outlier scores (the extension scrapes the "X x" badges that vidIQ adds to video cards).
+      <strong>Required:</strong> The <a href="https://chromewebstore.google.com/detail/vidiq-vision-for-youtube/pachckjkecffpdphbpmfolblodfkgbhl" target="_blank">vidIQ Vision for YouTube</a> Chrome extension must be installed for outlier scores (the extension reads the "X x" badges that vidIQ adds to video cards).
     </p>
 
-    <label for="targetWebhookUrl">Target Webhook URL (POST)</label>
-    <input id="targetWebhookUrl" type="url" placeholder="https://your-server.example/webhook/..." autocomplete="off" />
+    <label for="contentOsApiKey">API key</label>
+    <input id="contentOsApiKey" type="password" placeholder="cos_…" autocomplete="off" />
+
+    <label for="contentOsBaseUrl">Content OS URL</label>
+    <input id="contentOsBaseUrl" type="url" placeholder="https://getcontentos.vercel.app" autocomplete="off" />
 
     <button id="save">Save</button>
     <div id="message" role="status"></div>
 
     <div class="tip">
-      <strong>Payload your server will receive (POST, JSON):</strong><br>
-      <code>[
-  {
-    "videoURL": "https://www.youtube.com/watch?v=...",
-    "title": "Video Title",
-    "thumbnailUrl": "https://i.ytimg.com/...",
-    "outlierMultiple": 12.5   // number or null
-  }
-]</code><br><br>
-      Your server can respond with JSON containing a <code>url</code> (or similar) and the success toast will be clickable if present.
+      <strong>On YouTube:</strong> hover a video and click <code>Save</code> to save it with its outlier score. Right-click a video for <code>Save title to Content OS</code> or <code>Save thumbnail to Content OS</code>.
     </div>
 
     <script src="options.js"></script>

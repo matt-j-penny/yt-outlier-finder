@@ -21,54 +21,12 @@ function setMessage(text, isError = false) {
   msg.style.color = isError ? '#b91c1c' : '#374151';
 }
 
-async function sendToTargetWebhook(videoData) {
+function saveVideo(videoURL) {
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(['targetWebhookUrl'], async (items) => {
-      const webhookUrl = (items.targetWebhookUrl || '').trim();
-      if (!webhookUrl) {
-        reject(new Error('Target webhook URL missing. Set it in Options.'));
-        return;
-      }
-
-      const body = [
-        {
-          videoURL: videoData.videoURL,
-          title: videoData.title || null,
-          thumbnailUrl: videoData.thumbnailUrl || null,
-          outlierMultiple: null
-        }
-      ];
-
-      try {
-        const res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          const err = await res.text().catch(() => '');
-          reject(new Error(`Webhook error (${res.status}): ${err || res.statusText}`));
-          return;
-        }
-
-        // Try to extract a useful URL from response for clickable toast
-        let responseUrl = null;
-        try {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            responseUrl = data[0].url || data[0].notionUrl || data[0].notion_url;
-          } else if (data) {
-            responseUrl = data.url || data.notionUrl || data.notion_url || (data.data && (data.data.url || data.data.notionUrl));
-          }
-        } catch (e) {
-          // non-JSON or no url is fine
-        }
-
-        resolve(responseUrl);
-      } catch (e) {
-        reject(e);
-      }
+    chrome.runtime.sendMessage({ action: 'save-inspiration', item: { kind: 'youtube_video', url: videoURL } }, (response) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else if (!response.ok) reject(new Error(response.error));
+      else resolve(response.inspirationUrl);
     });
   });
 }
@@ -253,32 +211,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   sendBtn.addEventListener('click', async () => {
-    setMessage('Sending to webhook...');
+    setMessage('Saving to Content OS...');
     sendBtn.disabled = true;
     try {
-      const responseUrl = await sendToTargetWebhook({
-        videoURL: preview.dataset.videoUrl || '',
-        title: preview.dataset.title || null,
-        thumbnailUrl: preview.dataset.thumbnailUrl || null
-      });
-      if (responseUrl) {
-        setMessage('Sent! Click to open response.');
-        // Make the message area clickable
-        const msgEl = document.getElementById('message');
-        msgEl.style.cursor = 'pointer';
-        msgEl.style.textDecoration = 'underline';
-        const openHandler = () => {
-          window.open(responseUrl, '_blank');
-          msgEl.removeEventListener('click', openHandler);
-          msgEl.style.cursor = '';
-          msgEl.style.textDecoration = '';
-        };
-        msgEl.addEventListener('click', openHandler, { once: true });
-      } else {
-        setMessage('Sent to webhook.');
-      }
+      const inspirationUrl = await saveVideo(preview.dataset.videoUrl || '');
+      setMessage('Saved! Click to open Inspiration.');
+      const msgEl = document.getElementById('message');
+      msgEl.style.cursor = 'pointer';
+      msgEl.style.textDecoration = 'underline';
+      msgEl.addEventListener('click', () => {
+        window.open(inspirationUrl, '_blank');
+        msgEl.style.cursor = '';
+        msgEl.style.textDecoration = '';
+      }, { once: true });
     } catch (e) {
-      setMessage(e.message || 'Failed to send to webhook.', true);
+      setMessage(e.message || 'Failed to save to Content OS.', true);
     } finally {
       sendBtn.disabled = false;
     }

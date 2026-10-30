@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YT Outlier Finder",
-  "version": "0.2.0",
-  "description": "Filter YouTube videos live by outlier score, subscribers, and views. Send videos (with URL and outlier data) to a target webhook for custom handling.",
+  "version": "0.3.0",
+  "description": "Filter YouTube videos live by outlier score, subscribers, and views. Save videos, titles and thumbnails to Content OS inspiration.",
   "action": {
     "default_title": "YT Outlier Finder",
     "default_popup": "popup.html"
@@ -11,7 +11,7 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://www.youtube.com/*"
       ],
       "js": [
         "content.js"
@@ -20,11 +20,16 @@
     }
   ],
   "permissions": [
-    "storage"
+    "storage",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
     "https://youtube.com/*",
-    "https://*/*"
-  ]
+    "https://*/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }

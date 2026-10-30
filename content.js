@@ -290,6 +290,7 @@ function applyOutlierFilter() {
     if (container.closest('[hidden]')) return;
 
     applySmallChannelOutlierHighlight(container);
+    addSaveButton(container);
     
     // Check if any filter is enabled
     const anyFilterEnabled = outlierFilterEnabled || subFilterEnabled || viewFilterEnabled;
@@ -348,6 +349,7 @@ function initOutlierFilter() {
   if (!window.location.hostname.includes('youtube.com')) return;
 
   injectSmallChannelHighlightStyles();
+  injectSaveButtonStyles();
   
   // Load initial settings
   loadFilterSettings();
@@ -437,285 +439,143 @@ function initOutlierFilter() {
 initOutlierFilter();
 
 // ==========================================
-// EXISTING FUNCTIONALITY BELOW
+// SAVE TO CONTENT OS
 // ==========================================
 
-// Helper function to show error toast
-function showErrorToast(message) {
-  const existing = document.getElementById('ai-news-error-toast');
-  if (existing) existing.remove();
-  
-  const toast = document.createElement('div');
-  toast.id = 'ai-news-error-toast';
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed !important;
-    bottom: 20px !important;
-    right: 20px !important;
-    background: #991b1b !important;
-    color: #fff !important;
-    padding: 12px 16px !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.3) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-    font-size: 13px !important;
-    z-index: 2147483647 !important;
-    max-width: 300px !important;
-    opacity: 0 !important;
-    transition: opacity 120ms ease-in-out !important;
-    pointer-events: auto !important;
-  `;
-  
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => { toast.style.opacity = '1'; });
-  
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 200);
-  }, 4000);
+const VIDEO_CARD_SELECTOR = 'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-reel-item-renderer';
+
+function normalizeVideoUrl(href) {
+  if (!href) return null;
+  try {
+    const url = new URL(href, location.origin);
+    const id = url.searchParams.get('v') || (url.pathname.match(/^\/shorts\/([^/?]+)/) || [])[1];
+    return id ? `https://www.youtube.com/watch?v=${id}` : null;
+  } catch (e) {
+    return null;
+  }
 }
 
-// Content script to capture the element that was right-clicked
-document.addEventListener('contextmenu', (e) => {
-  // Store the element that was right-clicked
-  const target = e.target;
-  
-  // Check if it's an input, textarea, or contenteditable element
-  if (target.tagName === 'INPUT' || 
-      target.tagName === 'TEXTAREA' || 
-      target.isContentEditable ||
-      target.closest('input, textarea, [contenteditable="true"]')) {
-    
-    // Store the actual input/textarea element (in case we clicked on a child)
-    const inputElement = target.closest('input, textarea, [contenteditable="true"]') || target;
-    
-    // Remove the attribute from other elements first
-    document.querySelectorAll('[data-last-right-clicked]').forEach(el => {
-      el.removeAttribute('data-last-right-clicked');
+function getCardVideoUrl(container) {
+  const link = container.querySelector('a[href*="/watch?v="], a[href*="/shorts/"]');
+  return link ? normalizeVideoUrl(link.getAttribute('href')) : null;
+}
+
+function showToast(message, { isError = false, linkUrl = null } = {}) {
+  document.getElementById('cos-toast')?.remove();
+  const toast = document.createElement(linkUrl ? 'a' : 'div');
+  toast.id = 'cos-toast';
+  toast.textContent = message;
+  if (linkUrl) {
+    toast.href = linkUrl;
+    toast.target = '_blank';
+    toast.rel = 'noopener noreferrer';
+  }
+  if (isError) toast.dataset.error = 'true';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+function saveInspiration(item) {
+  return new Promise((resolve) => {
+    if (!chrome.runtime?.id) {
+      resolve({ ok: false, error: 'Extension was reloaded. Refresh this page and try again.' });
+      return;
+    }
+    chrome.runtime.sendMessage({ action: 'save-inspiration', item }, (response) => {
+      resolve(chrome.runtime.lastError ? { ok: false, error: chrome.runtime.lastError.message } : response);
     });
-    
-    // Mark this element as the one that was right-clicked
-    inputElement.setAttribute('data-last-right-clicked', 'true');
-  }
-}, true);
+  });
+}
 
-// Function to create and inject the AI News button in the modal
-function createAINewsButtonInModal(modalContainer, editorElement) {
-  // Check if button already exists in this modal
-  if (modalContainer.querySelector('.ai-news-button')) {
-    return;
-  }
+const SAVED_LABELS = { youtube_video: 'Video', youtube_title: 'Title', youtube_thumbnail: 'Thumbnail' };
 
-  // Create button element
+async function saveAndNotify(item) {
+  const result = await saveInspiration(item);
+  if (result.ok) showToast(`${SAVED_LABELS[item.kind]} saved to Content OS`, { linkUrl: result.inspirationUrl });
+  else showToast(result.error || 'Could not save to Content OS', { isError: true });
+  return result.ok;
+}
+
+function addSaveButton(container) {
+  // Cards nest (yt-lockup-view-model inside ytd-rich-item-renderer), so only the outermost gets a button
+  if (container.hasAttribute('data-cos-card') || container.querySelector('[data-cos-card]') || container.parentElement?.closest('[data-cos-card]')) return;
+  if (!getCardVideoUrl(container)) return;
+
+  container.setAttribute('data-cos-card', 'true');
   const button = document.createElement('button');
-  button.className = 'ai-news-button';
-  button.textContent = 'Write AI News';
   button.type = 'button';
-  
-  // Style the button - positioned near the editor area
-  button.style.cssText = `
-    position: absolute !important;
-    bottom: 16px !important;
-    right: 16px !important;
-    background: #111827 !important;
-    color: #fff !important;
-    border: none !important;
-    padding: 8px 16px !important;
-    border-radius: 6px !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-    cursor: pointer !important;
-    z-index: 999999 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
-    transition: background 0.2s ease !important;
-    pointer-events: auto !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  `;
-  
-  // Hover effect
-  button.addEventListener('mouseenter', () => {
-    button.style.background = '#1f2937';
-  });
-  button.addEventListener('mouseleave', () => {
-    button.style.background = '#111827';
-  });
-  
-  // Click handler
+  button.className = 'cos-save-btn';
+  button.textContent = 'Save';
+  button.title = 'Save to Content OS inspiration';
   button.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('[AI News Button] Button clicked!');
-    console.log('[AI News Button] Editor element:', editorElement);
-    
-    // Mark the editor element as the target
-    document.querySelectorAll('[data-last-right-clicked]').forEach(el => {
-      el.removeAttribute('data-last-right-clicked');
-    });
-    if (editorElement) {
-      editorElement.setAttribute('data-last-right-clicked', 'true');
-      console.log('[AI News Button] Marked editor as target:', editorElement.className);
-    } else {
-      console.warn('[AI News Button] No editor element found!');
-    }
-    
-    // Send message to background script
-    try {
-      // Check if extension context is still valid
-      if (!chrome.runtime || !chrome.runtime.id) {
-        showErrorToast('Extension context invalidated. Please reload this page and try again.');
-        console.error('[AI News Button] Extension context invalidated');
-        return;
-      }
-      
-      console.log('[AI News Button] Sending message to background script...');
-      chrome.runtime.sendMessage({ action: 'generate-ai-news' }, (response) => {
-        if (chrome.runtime.lastError) {
-          const errorMsg = chrome.runtime.lastError.message;
-          console.error('[AI News Button] Error sending message:', errorMsg);
-          
-          if (errorMsg.includes('Extension context invalidated') || 
-              errorMsg.includes('message port closed')) {
-            showErrorToast('Extension was reloaded. Please refresh this page and try again.');
-          } else {
-            showErrorToast('Failed to connect to extension. Please try again.');
-          }
-        } else {
-          console.log('[AI News Button] Message sent successfully, response:', response);
-        }
-      });
-    } catch (error) {
-      console.error('[AI News Button] Error sending message to background:', error);
-      if (error.message && error.message.includes('Extension context invalidated')) {
-        showErrorToast('Extension was reloaded. Please refresh this page and try again.');
-      } else {
-        showErrorToast('An error occurred. Please try again.');
-      }
-    }
+    const videoUrl = getCardVideoUrl(container);
+    if (!videoUrl) return;
+    button.disabled = true;
+    button.textContent = 'Saving…';
+    const outlier = getOutlierValue(container);
+    const ok = await saveAndNotify({ kind: 'youtube_video', url: videoUrl, ...(outlier !== null && { outlier_multiple: outlier }) });
+    button.textContent = ok ? 'Saved' : 'Save';
+    button.disabled = false;
   });
-  
-  // Make sure the modal container is relatively positioned
-  const computedStyle = window.getComputedStyle(modalContainer);
-  if (computedStyle.position === 'static' || computedStyle.position === '') {
-    modalContainer.style.position = 'relative';
-  }
-  
-  // Append button to the modal container
-  modalContainer.appendChild(button);
-  console.log('[AI News Button] Added button to modal container');
+  container.appendChild(button);
 }
 
-// Function to find and add buttons to modals
-function addButtonsToModals() {
-  // Make sure body exists
-  if (!document.body) {
+function injectSaveButtonStyles() {
+  if (document.getElementById('cos-save-style')) return;
+  const style = document.createElement('style');
+  style.id = 'cos-save-style';
+  style.textContent = `
+    [data-cos-card] { position: relative; }
+    .cos-save-btn {
+      position: absolute; top: 8px; left: 8px; z-index: 10;
+      padding: 4px 10px; border: none; border-radius: 6px;
+      background: rgba(17, 24, 39, 0.85); color: #fff;
+      font: 500 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: pointer; opacity: 0; transition: opacity 120ms ease-in-out;
+    }
+    [data-cos-card]:hover .cos-save-btn, .cos-save-btn:focus-visible { opacity: 1; }
+    .cos-save-btn:hover { background: #111827; }
+    .cos-save-btn:disabled { cursor: default; }
+    #cos-toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 2147483647;
+      max-width: 320px; padding: 12px 16px; border-radius: 8px;
+      background: #111827; color: #fff; text-decoration: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    a#cos-toast:hover { text-decoration: underline; }
+    #cos-toast[data-error] { background: #991b1b; }
+  `;
+  document.documentElement.appendChild(style);
+}
+
+// Right-click menu: remember which video was under the cursor
+let lastContextVideoUrl = null;
+document.addEventListener('contextmenu', (e) => {
+  const card = e.target.closest?.(VIDEO_CARD_SELECTOR);
+  lastContextVideoUrl = (card && getCardVideoUrl(card)) || normalizeVideoUrl(location.href);
+}, true);
+
+async function fetchTitle(videoUrl) {
+  const res = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(videoUrl)}`);
+  if (!res.ok) throw new Error('Could not find that video');
+  return (await res.json()).title;
+}
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.action !== 'context-save') return;
+  const videoUrl = normalizeVideoUrl(message.linkUrl) || lastContextVideoUrl;
+  if (!videoUrl) {
+    showToast('Right-click a video to save it', { isError: true });
     return;
   }
-
-  // Look for the Skool post creation modal
-  // Based on the HTML structure: div with class containing "PostBodyWrapper"
-  const postBodyWrapper = document.querySelector('[class*="PostBodyWrapper"]');
-  
-  if (postBodyWrapper) {
-    // Check if we've already added a button to this modal
-    if (postBodyWrapper.dataset.aiNewsButtonAdded) {
-      return;
-    }
-    
-    // Find the Skool editor inside this modal
-    const skoolEditor = postBodyWrapper.querySelector('.skool-editor, .tiptap.ProseMirror.skool-editor, [contenteditable="true"].tiptap.ProseMirror');
-    
-    if (skoolEditor) {
-      console.log('[AI News Button] Found Skool post modal with editor');
-      postBodyWrapper.dataset.aiNewsButtonAdded = 'true';
-      createAINewsButtonInModal(postBodyWrapper, skoolEditor);
-      return;
-    }
-  }
-  
-  // Fallback: Look for any modal/dialog that contains a Skool editor
-  const allModals = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="Dialog"]');
-  
-  for (const modal of allModals) {
-    if (modal.dataset.aiNewsButtonAdded) {
-      continue;
-    }
-    
-    const skoolEditor = modal.querySelector('.skool-editor, .tiptap.ProseMirror.skool-editor, [contenteditable="true"].tiptap.ProseMirror');
-    
-    if (skoolEditor) {
-      console.log('[AI News Button] Found modal with Skool editor');
-      modal.dataset.aiNewsButtonAdded = 'true';
-      createAINewsButtonInModal(modal, skoolEditor);
-      return;
-    }
-  }
-  
-  // Last resort: Look for Skool editor anywhere and find its container
-  const skoolEditor = document.querySelector('.skool-editor, .tiptap.ProseMirror.skool-editor');
-  
-  if (skoolEditor) {
-    // Find a suitable container (look for PostBodyWrapper or similar)
-    let container = skoolEditor.closest('[class*="PostBodyWrapper"]') || 
-                    skoolEditor.closest('[class*="PostBody"]') ||
-                    skoolEditor.closest('[role="dialog"]') ||
-                    skoolEditor.closest('[class*="modal"]') ||
-                    skoolEditor.parentElement;
-    
-    if (container && !container.dataset.aiNewsButtonAdded) {
-      console.log('[AI News Button] Found Skool editor, adding button to container');
-      container.dataset.aiNewsButtonAdded = 'true';
-      createAINewsButtonInModal(container, skoolEditor);
-    }
-  }
-}
-
-// Function to initialize the observer
-function initializeObserver() {
-  if (!document.body) {
-    // Wait for body to be available
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initializeObserver);
-    } else {
-      // Use a small delay to wait for body
-      setTimeout(initializeObserver, 10);
-    }
+  if (message.kind === 'youtube_thumbnail') {
+    saveAndNotify({ kind: 'youtube_thumbnail', url: videoUrl });
     return;
   }
-
-  console.log('[AI News Button] Initializing observer');
-  
-  // Initial scan with a small delay to let page load
-  setTimeout(() => {
-    addButtonsToModals();
-  }, 500);
-
-  // Watch for dynamically added modals
-  const observer = new MutationObserver(() => {
-    // Debounce to avoid too many calls
-    if (observer.timeout) {
-      clearTimeout(observer.timeout);
-    }
-    observer.timeout = setTimeout(() => {
-      addButtonsToModals();
-    }, 300);
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-  
-  // Also try again after a longer delay for slow-loading pages
-  setTimeout(() => {
-    console.log('[AI News Button] Delayed scan');
-    addButtonsToModals();
-  }, 2000);
-}
-
-// Start initialization
-initializeObserver();
-
+  fetchTitle(videoUrl)
+    .then((title) => saveAndNotify({ kind: 'youtube_title', url: videoUrl, title }))
+    .catch((e) => showToast(e.message, { isError: true }));
+});
