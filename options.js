@@ -1,9 +1,9 @@
-const DEFAULT_BASE_URL = 'https://getcontentos.vercel.app';
+const DEFAULT_BASE_URL = 'https://the-content-os.com';
 
 function setMessage(text, isError = false) {
   const msg = document.getElementById('message');
   msg.textContent = text;
-  msg.style.color = isError ? '#b91c1c' : '#374151';
+  msg.style.color = isError ? 'var(--accent)' : 'var(--muted)';
 }
 
 function loadSettings() {

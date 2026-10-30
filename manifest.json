@@ -30,7 +30,7 @@
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://getcontentos.vercel.app/*"
+    "https://the-content-os.com/*"
   ],
   "background": {
     "service_worker": "background.js"

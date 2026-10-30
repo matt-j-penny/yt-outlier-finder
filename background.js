@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = 'https://getcontentos.vercel.app';
+const DEFAULT_BASE_URL = 'https://the-content-os.com';
 
 const MENUS = [
   { id: 'save-title', title: 'Save title to Content OS', kind: 'youtube_title' },

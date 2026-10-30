@@ -44,6 +44,6 @@ Each save calls `POST /api/inspiration` on Content OS with `Authorization: Beare
 Options page:
 
 - **API key** — a Content OS key (`cos_…`). Stored in Chrome local storage only.
-- **Content OS URL** — defaults to `https://getcontentos.vercel.app`; use `http://localhost:3000` for local development.
+- **Content OS URL** — defaults to `https://the-content-os.com`; use `http://localhost:3000` for local development.
 
 Filter settings live in Chrome sync storage.

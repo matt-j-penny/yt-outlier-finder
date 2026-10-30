@@ -5,43 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YT Outlier Finder Settings</title>
     <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 24px; color: #111827; }
-      h1 { margin: 0 0 16px 0; font-size: 18px; }
-      label { display: block; font-size: 12px; color: #6b7280; margin-top: 12px; }
-      input { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 6px; border: 1px solid #d1d5db; border-radius: 6px; }
-      button { margin-top: 16px; border: none; background: #111827; color: #ffffff; padding: 10px 12px; border-radius: 6px; cursor: pointer; }
-      #message { margin-top: 10px; font-size: 12px; color: #374151; }
-      .tip { margin-top: 18px; font-size: 12px; color: #6b7280; }
-      code { background: #f3f4f6; padding: 2px 4px; border-radius: 4px; }
+      :root {
+        --bg: #f4f5f7; --card: #ffffff; --text: #111827; --muted: #6b7280; --border: #e5e7eb;
+        --input: #f9fafb; --accent: #ef4444; --accent-soft: #fef2f2; --button: #111827; --button-text: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0f17; --card: #111827; --text: #f3f4f6; --muted: #9ca3af; --border: #1f2937;
+          --input: #0b0f17; --accent-soft: rgba(239, 68, 68, 0.12); --button: #f3f4f6; --button-text: #111827;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; padding: 48px 16px;
+        background: var(--bg); color: var(--text);
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex; justify-content: center; align-items: flex-start;
+      }
+      .card { width: 100%; max-width: 560px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06); }
+      header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+      header img { width: 44px; height: 44px; }
+      h1 { margin: 0; font-size: 20px; line-height: 1.2; }
+      .subtitle { margin: 2px 0 0; color: var(--muted); }
+      h2 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      section + section { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--border); }
+      .label-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; }
+      label { font-weight: 600; font-size: 13px; }
+      .label-row a { font-size: 12px; color: var(--accent); text-decoration: none; }
+      .label-row a:hover { text-decoration: underline; }
+      input { width: 100%; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--input); color: var(--text); font: inherit; }
+      input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .hint { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+      .actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+      button { border: none; background: var(--button); color: var(--button-text); padding: 10px 18px; border-radius: 8px; font: 600 14px inherit; font-family: inherit; cursor: pointer; }
+      button:hover { opacity: 0.9; }
+      #message { font-size: 13px; }
+      ol { margin: 12px 0 0; padding: 0; list-style: none; counter-reset: step; }
+      ol li { counter-increment: step; display: flex; gap: 12px; margin-top: 12px; }
+      ol li::before {
+        content: counter(step); flex: none; width: 24px; height: 24px; border-radius: 50%;
+        background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 12px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      ol strong { display: block; }
+      ol span { color: var(--muted); }
+      .note { margin-top: 18px; padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); font-size: 12px; }
+      .note a { color: var(--accent); }
     </style>
   </head>
   <body>
-    <h1>YT Outlier Finder Settings</h1>
+    <main class="card">
+      <header>
+        <img src="icons/icon128.png" alt="">
+        <div>
+          <h1>YT Outlier Finder</h1>
+          <p class="subtitle">Save outlier videos, titles and thumbnails to Content OS.</p>
+        </div>
+      </header>
 
-    <h2 style="margin-top: 0; font-size: 16px;">Content OS</h2>
-    <p class="tip" style="margin-top: 0;">Saved videos, titles and thumbnails go to your Content OS Inspiration page. Create an API key on the Content OS <strong>API</strong> page and paste it here.</p>
+      <section>
+        <h2>Connect Content OS</h2>
 
-    <p class="tip" style="margin-top: 8px; color: #b91c1c;">
-      <strong>Required:</strong> The <a href="https://chromewebstore.google.com/detail/vidiq-vision-for-youtube/pachckjkecffpdphbpmfolblodfkgbhl" target="_blank">vidIQ Vision for YouTube</a> Chrome extension must be installed for outlier scores (the extension reads the "X x" badges that vidIQ adds to video cards).
-    </p>
+        <div class="label-row">
+          <label for="contentOsApiKey">API key</label>
+          <a href="https://the-content-os.com/api-keys" target="_blank" rel="noopener noreferrer">Get a key</a>
+        </div>
+        <input id="contentOsApiKey" type="password" placeholder="cos_…" autocomplete="off" />
+        <p class="hint">Stored only in this Chrome profile.</p>
 
-    <label for="contentOsApiKey">API key</label>
-    <input id="contentOsApiKey" type="password" placeholder="cos_…" autocomplete="off" />
+        <div class="label-row">
+          <label for="contentOsBaseUrl">Content OS URL</label>
+        </div>
+        <input id="contentOsBaseUrl" type="url" placeholder="https://the-content-os.com" autocomplete="off" />
 
-    <label for="contentOsBaseUrl">Content OS URL</label>
-    <input id="contentOsBaseUrl" type="url" placeholder="https://getcontentos.vercel.app" autocomplete="off" />
+        <div class="actions">
+          <button id="save">Save</button>
+          <div id="message" role="status"></div>
+        </div>
+      </section>
 
-    <button id="save">Save</button>
-    <div id="message" role="status"></div>
-
-    <div class="tip">
-      <strong>On YouTube:</strong> hover a video and click <code>Save</code> to save it with its outlier score. Right-click a video for <code>Save title to Content OS</code> or <code>Save thumbnail to Content OS</code>.
-    </div>
+      <section>
+        <h2>How to use</h2>
+        <ol>
+          <li><div><strong>Filter</strong><span>Open the popup on YouTube to show only videos above an outlier score, subscriber or view range.</span></div></li>
+          <li><div><strong>Save a video</strong><span>Hover any video and click <em>Save</em>. Its outlier score comes with it.</span></div></li>
+          <li><div><strong>Save just the title or thumbnail</strong><span>Right-click a video and choose <em>Save title</em> or <em>Save thumbnail to Content OS</em>.</span></div></li>
+        </ol>
+        <p class="note">Outlier scores come from <a href="https://chromewebstore.google.com/detail/vidiq-vision-for-youtube/pachckjkecffpdphbpmfolblodfkgbhl" target="_blank" rel="noopener noreferrer">vidIQ Vision for YouTube</a>, so install it alongside this extension.</p>
+      </section>
+    </main>
 
     <script src="options.js"></script>
   </body>
-  </html>
-
-
-
-
+</html>
