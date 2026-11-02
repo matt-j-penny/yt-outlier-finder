@@ -8,93 +8,105 @@
   </head>
   <body>
     <div id="app">
-      <h1>YT Outlier Finder</h1>
-      
-      <!-- Outlier Filter Section -->
-      <div class="filter-section">
-        <div class="filter-header">
-          <label class="toggle-label">
-            <span>Filter by Outlier</span>
-            <input type="checkbox" id="outlierToggle">
-            <span class="toggle-switch"></span>
-          </label>
+      <header>
+        <img src="icons/icon48.png" alt="">
+        <div class="brand">
+          <h1>YT Outlier Finder</h1>
+          <p>by Content OS</p>
         </div>
-        <div id="sliderContainer" class="slider-container hidden">
-          <div class="slider-labels">
-            <span>Min Outlier:</span>
-            <span id="sliderValue">5x</span>
-          </div>
-          <input type="range" id="outlierSlider" min="1" max="100" value="5" step="1">
-        </div>
-      </div>
-      
-      <!-- Subscriber Filter Section -->
-      <div class="filter-section">
-        <div class="filter-header">
-          <label class="toggle-label">
-            <span>Filter by Subscribers</span>
-            <input type="checkbox" id="subToggle">
-            <span class="toggle-switch"></span>
-          </label>
-        </div>
-        <div id="subContainer" class="slider-container hidden">
-          <div class="sub-inputs">
-            <div class="sub-input-group">
-              <label for="subMin">Min</label>
-              <input type="text" id="subMin" placeholder="e.g. 10K" value="0">
-            </div>
-            <div class="sub-input-group">
-              <label for="subMax">Max</label>
-              <input type="text" id="subMax" placeholder="e.g. 1M" value="">
-            </div>
-          </div>
-          <div class="sub-hint">Use K for thousands, M for millions (e.g. 500K, 2M)</div>
-        </div>
+        <a href="guide.html" target="_blank" class="icon-link" title="How to use it" aria-label="How to use it">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </a>
+        <a href="#" class="icon-link open-options" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
+      </header>
+
+      <div id="keyNotice" class="notice hidden">
+        <strong>Connect Content OS</strong>
+        Add your API key in <a href="#" class="open-options">Settings</a> to use the + Idea and Save inspo buttons.
       </div>
 
-      <!-- Views Filter Section -->
-      <div class="filter-section">
-        <div class="filter-header">
-          <label class="toggle-label">
-            <span>Filter by Views</span>
-            <input type="checkbox" id="viewToggle">
-            <span class="toggle-switch"></span>
-          </label>
-        </div>
-        <div id="viewContainer" class="slider-container hidden">
-          <div class="sub-inputs">
-            <div class="sub-input-group">
-              <label for="viewMin">Min</label>
-              <input type="text" id="viewMin" placeholder="e.g. 50K" value="0">
-            </div>
-            <div class="sub-input-group">
-              <label for="viewMax">Max</label>
-              <input type="text" id="viewMax" placeholder="e.g. 2M" value="">
+      <section>
+        <h2>Filters</h2>
+        <div class="card">
+          <div class="mode-switch" role="group" aria-label="What the filters do">
+            <button type="button" data-mode="highlight" aria-pressed="true">Highlight in red</button>
+            <button type="button" data-mode="hide" aria-pressed="false">Hide the rest</button>
+          </div>
+          <p id="modeHint" class="mode-hint">Videos that match every filter below get a red background.</p>
+          <div class="filter">
+            <label class="toggle-label">
+              <span>Outlier score</span>
+              <input type="checkbox" id="outlierToggle">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="sliderContainer" class="filter-body hidden">
+              <div class="slider-labels">
+                <span>At least</span>
+                <span id="sliderValue">5x</span>
+              </div>
+              <input type="range" id="outlierSlider" min="1" max="100" value="5" step="1">
             </div>
           </div>
-          <div class="sub-hint">Use K for thousands, M for millions (e.g. 100K, 1.5M)</div>
+
+          <div class="filter">
+            <label class="toggle-label">
+              <span>Subscribers</span>
+              <input type="checkbox" id="subToggle">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="subContainer" class="filter-body hidden">
+              <div class="range-inputs">
+                <div>
+                  <label for="subMin">Min</label>
+                  <input type="text" id="subMin" placeholder="e.g. 10K" value="0">
+                </div>
+                <div>
+                  <label for="subMax">Max</label>
+                  <input type="text" id="subMax" placeholder="No limit" value="">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter">
+            <label class="toggle-label">
+              <span>Views</span>
+              <input type="checkbox" id="viewToggle">
+              <span class="toggle-switch"></span>
+            </label>
+            <div id="viewContainer" class="filter-body hidden">
+              <div class="range-inputs">
+                <div>
+                  <label for="viewMin">Min</label>
+                  <input type="text" id="viewMin" placeholder="e.g. 50K" value="0">
+                </div>
+                <div>
+                  <label for="viewMax">Max</label>
+                  <input type="text" id="viewMax" placeholder="No limit" value="">
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <label for="urlInput">YouTube URL</label>
-      <input id="urlInput" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
-      <button id="previewBtn">Preview</button>
+        <p class="hint">Use K for thousands and M for millions, like 500K or 2M.</p>
+      </section>
 
-      <div id="preview" class="hidden">
-        <img id="thumb" alt="Thumbnail" />
-        <div id="title"></div>
-        <button id="sendBtn">Send to Webhook</button>
-      </div>
+      <section>
+        <h2>What you'll see on YouTube</h2>
+        <div class="card legend">
+          <div><span class="swatch"></span><span><strong>Red background</strong>: in Highlight mode, the video matches every filter you've turned on.</span></div>
+          <div><span class="badge">12x</span><span><strong>vidIQ score</strong>: how many times more views than that channel usually gets.</span></div>
+          <div><span class="pill red">+ Idea</span><span>Hover a video to add it to your Ideas board or <span class="pill">Save inspo</span>.</span></div>
+        </div>
+      </section>
 
-      <div id="message" role="status"></div>
-      <div class="hint">
-        Configure the target webhook in <a href="#" id="openOptions">Options</a>.
-      </div>
+      <footer>
+        <a href="guide.html" target="_blank">How to use it</a>
+        <a href="#" class="open-options">Settings</a>
+      </footer>
     </div>
     <script src="popup.js"></script>
   </body>
-  </html>
-
-
-
-
+</html>

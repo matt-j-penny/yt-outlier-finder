@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>How to use YT Outlier Finder</title>
+    <link rel="stylesheet" href="page.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon128.png" alt="">
+        <div>
+          <h1>YT Outlier Finder</h1>
+          <p>Find outlier videos and save them to Content OS.</p>
+        </div>
+      </header>
+
+      <nav>
+        <a href="options.html">Settings</a>
+        <a href="guide.html" aria-current="page">How to use it</a>
+      </nav>
+
+      <section class="card">
+        <h2>1. Set it up</h2>
+        <ol class="steps">
+          <li>Install <a href="https://chromewebstore.google.com/detail/vidiq-vision-for-youtube/pachckjkecffpdphbpmfolblodfkgbhl" target="_blank">vidIQ Vision for YouTube</a>. It adds the outlier scores this extension reads.</li>
+          <li>Create an API key on the <a href="https://the-content-os.com/api-keys" target="_blank">API page</a> in Content OS.</li>
+          <li>Paste it in <a href="options.html">Settings</a> and click Save.</li>
+          <li>Pin the extension: click the puzzle piece in Chrome's toolbar, then the pin next to YT Outlier Finder.</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>2. Save videos as you browse</h2>
+        <p>Hover over any video on YouTube, or any post or reel on Instagram (in your feed, on a profile, or opened on its own), and two buttons appear in its top-left corner.</p>
+        <div class="key"><span class="pill red">+ Idea</span><span>Adds the video to the <strong>Ideas</strong> column of your Content OS board, with its link and outlier score. YouTube videos go on the long-form board. Shorts and Instagram posts go on the short-form board.</span></div>
+        <div class="key"><span class="pill">Save inspo</span><span>Saves the video's title and thumbnail together to your <strong>Inspiration</strong> page. Instagram posts are saved under Instagram posts.</span></div>
+      </section>
+
+      <section class="card">
+        <h2>3. Find the outliers</h2>
+        <p>Click the extension icon on any YouTube page to open the filters. Changes apply straight away and are remembered.</p>
+        <dl>
+          <dt>Filter by Outlier</dt>
+          <dd>Only videos with at least this outlier score, for example 5x or 10x.</dd>
+          <dt>Filter by Subscribers</dt>
+          <dd>Only videos from channels within this size. Use K and M, like 10K or 1.5M. Leave Max empty for no limit.</dd>
+          <dt>Filter by Views</dt>
+          <dd>Only videos with views in this range.</dd>
+        </dl>
+        <p style="margin-top: 14px;">Turn on more than one and a video has to match all of them. If a video has no subscriber or view count showing, those two filters let it through.</p>
+      </section>
+
+      <section class="card">
+        <h2>4. Hide or highlight</h2>
+        <p>The two tabs at the top of the filters choose what the filters do. Highlight is the default.</p>
+        <div class="key"><span class="swatch"></span><span><strong>Highlight in red</strong>: every video stays, and the ones that match get a red background so they stand out.</span></div>
+        <div class="key"><span class="swatch" style="background: var(--card); box-shadow: inset 0 0 0 1px var(--border);"></span><span><strong>Hide the rest</strong>: videos that don't match disappear from the page, so you only see the outliers.</span></div>
+        <div class="key"><span class="badge">12x</span><span>The coloured "x" score on each video comes from vidIQ. It's how many times more views the video got than that channel usually gets. 12x means twelve times the channel's normal views.</span></div>
+      </section>
+
+      <section class="card">
+        <h2>Something not working?</h2>
+        <dl>
+          <dt>The buttons don't show up</dt>
+          <dd>Refresh the YouTube or Instagram tab. Pages that were open before you installed or updated the extension need a refresh.</dd>
+          <dt>"The extension was updated. Refresh this page"</dt>
+          <dd>Exactly that: refresh the tab and click the button again.</dd>
+          <dt>"Content OS rejected your API key"</dt>
+          <dd>The key was revoked or copied wrongly. Create a new one and save it in Settings.</dd>
+          <dt>The outlier filter hides every video</dt>
+          <dd>vidIQ isn't installed, or hasn't loaded its scores yet. Give the page a few seconds, or check vidIQ is switched on.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

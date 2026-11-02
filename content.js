@@ -3,6 +3,7 @@
 // ==========================================
 
 // Store current filter settings
+let filterMode = 'highlight';
 let outlierFilterEnabled = false;
 let outlierMinValue = 5;
 let subFilterEnabled = false;
@@ -12,9 +13,8 @@ let viewFilterEnabled = false;
 let viewMinValue = 0;
 let viewMaxValue = Infinity;
 
-const SMALL_CHANNEL_OUTLIER_MIN = 10;
-const SMALL_CHANNEL_SUB_MAX = 50000;
-const SMALL_CHANNEL_HIGHLIGHT_ATTR = 'data-small-channel-outlier-highlight';
+const VIDEO_SELECTOR = 'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-reel-item-renderer';
+const HIGHLIGHT_ATTR = 'data-outlier-highlight';
 
 // Parse subscriber count strings like "2.13M", "500K", "1.5B", "50000"
 function parseSubscriberCount(text) {
@@ -90,6 +90,7 @@ function parseViewCount(text) {
 // Load filter settings from storage
 function loadFilterSettings() {
   chrome.storage.sync.get([
+    'filterMode',
     'outlierFilterEnabled',
     'outlierMinValue',
     'subFilterEnabled',
@@ -99,6 +100,7 @@ function loadFilterSettings() {
     'viewMinValue',
     'viewMaxValue'
   ], (items) => {
+    filterMode = items.filterMode || 'highlight';
     outlierFilterEnabled = items.outlierFilterEnabled || false;
     outlierMinValue = items.outlierMinValue || 5;
     subFilterEnabled = items.subFilterEnabled || false;
@@ -114,6 +116,9 @@ function loadFilterSettings() {
 // Listen for changes to filter settings
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'sync') {
+    if (changes.filterMode !== undefined) {
+      filterMode = changes.filterMode.newValue || 'highlight';
+    }
     if (changes.outlierFilterEnabled !== undefined) {
       outlierFilterEnabled = changes.outlierFilterEnabled.newValue || false;
     }
@@ -232,126 +237,141 @@ function getViewCount(videoContainer) {
   return null;
 }
 
-function shouldHighlightSmallChannelOutlier(videoContainer) {
-  const outlierValue = getOutlierValue(videoContainer);
-  if (outlierValue === null || outlierValue <= SMALL_CHANNEL_OUTLIER_MIN) {
-    return false;
+// Videos without data for the subscriber or views filter are treated as matching.
+function matchesFilters(container) {
+  if (outlierFilterEnabled) {
+    const outlierValue = getOutlierValue(container);
+    if (outlierValue === null || outlierValue < outlierMinValue) return false;
   }
 
-  const subCount = getSubscriberCount(videoContainer);
-  if (subCount === null || subCount >= SMALL_CHANNEL_SUB_MAX) {
-    return false;
+  if (subFilterEnabled) {
+    const subCount = getSubscriberCount(container);
+    if (subCount !== null && (subCount < subMinValue || subCount > subMaxValue)) return false;
+  }
+
+  if (viewFilterEnabled) {
+    const viewCount = getViewCount(container);
+    if (viewCount !== null && (viewCount < viewMinValue || viewCount > viewMaxValue)) return false;
   }
 
   return true;
 }
 
-function applySmallChannelOutlierHighlight(videoContainer) {
-  if (shouldHighlightSmallChannelOutlier(videoContainer)) {
-    videoContainer.setAttribute(SMALL_CHANNEL_HIGHLIGHT_ATTR, 'true');
+function setHidden(container, hidden) {
+  if (hidden) {
+    container.style.setProperty('display', 'none', 'important');
+    container.setAttribute('data-filter-hidden', 'true');
   } else {
-    videoContainer.removeAttribute(SMALL_CHANNEL_HIGHLIGHT_ATTR);
+    container.style.removeProperty('display');
+    container.removeAttribute('data-filter-hidden');
   }
 }
 
-function injectSmallChannelHighlightStyles() {
-  if (document.getElementById('small-channel-outlier-highlight-style')) return;
+// Apply the filter to all videos on the page
+function applyOutlierFilter() {
+  if (!window.location.hostname.includes('youtube.com')) return;
+
+  const anyFilterEnabled = outlierFilterEnabled || subFilterEnabled || viewFilterEnabled;
+
+  document.querySelectorAll(VIDEO_SELECTOR).forEach(container => {
+    if (container.closest('[hidden]')) return;
+
+    const matches = anyFilterEnabled && matchesFilters(container);
+    setHidden(container, anyFilterEnabled && filterMode === 'hide' && !matches);
+    if (matches && filterMode === 'highlight') {
+      container.setAttribute(HIGHLIGHT_ATTR, 'true');
+    } else {
+      container.removeAttribute(HIGHLIGHT_ATTR);
+    }
+  });
+}
+
+function injectStyles() {
+  if (document.getElementById('outlier-finder-style')) return;
 
   const style = document.createElement('style');
-  style.id = 'small-channel-outlier-highlight-style';
+  style.id = 'outlier-finder-style';
   style.textContent = `
-    [${SMALL_CHANNEL_HIGHLIGHT_ATTR}="true"] {
+    [${HIGHLIGHT_ATTR}="true"] {
       background-color: #fee2e2 !important;
       border-radius: 8px;
       box-shadow: inset 0 0 0 1px #fecaca;
     }
 
-    html[dark] [${SMALL_CHANNEL_HIGHLIGHT_ATTR}="true"],
-    html[dark="true"] [${SMALL_CHANNEL_HIGHLIGHT_ATTR}="true"] {
+    html[dark] [${HIGHLIGHT_ATTR}="true"],
+    html[dark="true"] [${HIGHLIGHT_ATTR}="true"] {
       background-color: rgba(220, 38, 38, 0.2) !important;
       box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.45);
     }
+
+    .cos-actions {
+      display: flex;
+      gap: 6px;
+    }
+    /* One floating pair on <body>, so it sits above YouTube's hover preview and Instagram's overlays. */
+    .cos-actions.cos-floating {
+      position: fixed;
+      z-index: 2147483646;
+    }
+    .cos-actions button {
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font: 600 12px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #fff;
+      background: rgba(17, 24, 39, 0.88);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .cos-actions button:hover { background: #111827; }
+    .cos-actions button.cos-idea { background: rgba(220, 38, 38, 0.92); }
+    .cos-actions button.cos-idea:hover { background: #dc2626; }
+    .cos-actions button:disabled { opacity: 0.6; cursor: default; }
+    .cos-actions:not(.cos-side) .cos-icon,
+    .cos-actions:not(.cos-side) .cos-short,
+    .cos-actions.cos-side .cos-label { display: none; }
+
+    /* Reels: round buttons in a column, styled like Instagram's own side actions. */
+    .cos-actions.cos-side {
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .cos-actions.cos-side button,
+    .cos-actions.cos-side button:hover {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 0;
+      background: none;
+      box-shadow: none;
+      font-size: 12px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .cos-side .cos-icon {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(38, 38, 38, 0.92);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+    .cos-side .cos-idea .cos-icon { background: #dc2626; }
+    .cos-side button:hover .cos-icon { transform: scale(1.06); filter: brightness(1.15); }
   `;
   document.documentElement.appendChild(style);
-}
-
-// Apply the outlier filter to all videos on the page
-function applyOutlierFilter() {
-  // Only run on YouTube
-  if (!window.location.hostname.includes('youtube.com')) return;
-  
-  // Find all video containers (works for homepage, search, channel pages, shorts shelf, etc.)
-  const videoContainers = document.querySelectorAll(
-    'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-reel-item-renderer'
-  );
-  
-  videoContainers.forEach(container => {
-    // Skip if this is inside a dismissed/hidden parent
-    if (container.closest('[hidden]')) return;
-
-    applySmallChannelOutlierHighlight(container);
-    
-    // Check if any filter is enabled
-    const anyFilterEnabled = outlierFilterEnabled || subFilterEnabled || viewFilterEnabled;
-    
-    if (!anyFilterEnabled) {
-      // All filters OFF - show all videos
-      container.style.removeProperty('display');
-      container.removeAttribute('data-filter-hidden');
-    } else {
-      let shouldHide = false;
-      
-      // Check outlier filter
-      if (outlierFilterEnabled) {
-        const outlierValue = getOutlierValue(container);
-        if (outlierValue === null || outlierValue < outlierMinValue) {
-          shouldHide = true;
-        }
-      }
-      
-      // Check subscriber filter (only if not already hidden)
-      if (!shouldHide && subFilterEnabled) {
-        const subCount = getSubscriberCount(container);
-        // Only filter if we found subscriber data - don't hide videos without data
-        if (subCount !== null) {
-          if (subCount < subMinValue || subCount > subMaxValue) {
-            // Outside the subscriber range
-            shouldHide = true;
-          }
-        }
-      }
-
-      // Check views filter (only if not already hidden)
-      if (!shouldHide && viewFilterEnabled) {
-        const viewCount = getViewCount(container);
-        // Only filter if we found views data - don't hide videos without data
-        if (viewCount !== null) {
-          if (viewCount < viewMinValue || viewCount > viewMaxValue) {
-            shouldHide = true;
-          }
-        }
-      }
-      
-      if (shouldHide) {
-        container.style.setProperty('display', 'none', 'important');
-        container.setAttribute('data-filter-hidden', 'true');
-      } else {
-        container.style.removeProperty('display');
-        container.removeAttribute('data-filter-hidden');
-      }
-    }
-  });
 }
 
 // Initialize outlier filter when on YouTube
 function initOutlierFilter() {
   if (!window.location.hostname.includes('youtube.com')) return;
 
-  injectSmallChannelHighlightStyles();
-  
   // Load initial settings
   loadFilterSettings();
-  
+
   // Watch for new videos being added to the page (infinite scroll)
   const filterObserver = new MutationObserver((mutations) => {
     // Check if any VidIQ elements were added
@@ -362,7 +382,7 @@ function initOutlierFilter() {
           if (node.nodeType === 1) {
             // Check if this is a video container or contains vidiq elements
             if (node.matches && (
-              node.matches('ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-reel-item-renderer') ||
+              node.matches(VIDEO_SELECTOR) ||
               node.querySelector && (
                 node.querySelector('[data-react-popover="OutlierPopover"]') ||
                 node.querySelector('[data-react-popover="SubscriberPopover"]')
@@ -381,7 +401,7 @@ function initOutlierFilter() {
       }
       if (hasVidiqChanges) break;
     }
-    
+
     if (filterObserver.filterTimeout) {
       clearTimeout(filterObserver.filterTimeout);
     }
@@ -391,22 +411,9 @@ function initOutlierFilter() {
       applyOutlierFilter();
     }, delay);
   });
-  
-  // Start observing once body is available
-  if (document.body) {
-    filterObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      filterObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    });
-  }
-  
+
+  onBody(() => filterObserver.observe(document.body, { childList: true, subtree: true }));
+
   // Also apply filter on navigation (YouTube is a SPA)
   let lastUrl = location.href;
   new MutationObserver(() => {
@@ -421,7 +428,7 @@ function initOutlierFilter() {
       setTimeout(applyOutlierFilter, 4000);
     }
   }).observe(document, { subtree: true, childList: true });
-  
+
   // Apply filter periodically to catch any missed updates (every 2 seconds for first 10 seconds)
   let periodicCount = 0;
   const periodicInterval = setInterval(() => {
@@ -433,26 +440,28 @@ function initOutlierFilter() {
   }, 2000);
 }
 
-// Start the outlier filter
-initOutlierFilter();
+function onBody(fn) {
+  if (document.body) fn();
+  else document.addEventListener('DOMContentLoaded', fn);
+}
 
 // ==========================================
-// EXISTING FUNCTIONALITY BELOW
+// SAVE TO CONTENT OS (Add idea / Save inspo)
 // ==========================================
 
-// Helper function to show error toast
-function showErrorToast(message) {
-  const existing = document.getElementById('ai-news-error-toast');
+function showToast(message, isError = false) {
+  const existing = document.getElementById('cos-toast');
   if (existing) existing.remove();
-  
+
   const toast = document.createElement('div');
-  toast.id = 'ai-news-error-toast';
+  toast.id = 'cos-toast';
   toast.textContent = message;
   toast.style.cssText = `
     position: fixed !important;
     bottom: 20px !important;
-    right: 20px !important;
-    background: #991b1b !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: ${isError ? '#991b1b' : '#111827'} !important;
     color: #fff !important;
     padding: 12px 16px !important;
     border-radius: 8px !important;
@@ -460,262 +469,262 @@ function showErrorToast(message) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
     font-size: 13px !important;
     z-index: 2147483647 !important;
-    max-width: 300px !important;
-    opacity: 0 !important;
-    transition: opacity 120ms ease-in-out !important;
-    pointer-events: auto !important;
+    max-width: 360px !important;
   `;
-  
   document.body.appendChild(toast);
-  requestAnimationFrame(() => { toast.style.opacity = '1'; });
-  
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 200);
-  }, 4000);
+  setTimeout(() => toast.remove(), 4000);
 }
 
-// Content script to capture the element that was right-clicked
-document.addEventListener('contextmenu', (e) => {
-  // Store the element that was right-clicked
-  const target = e.target;
-  
-  // Check if it's an input, textarea, or contenteditable element
-  if (target.tagName === 'INPUT' || 
-      target.tagName === 'TEXTAREA' || 
-      target.isContentEditable ||
-      target.closest('input, textarea, [contenteditable="true"]')) {
-    
-    // Store the actual input/textarea element (in case we clicked on a child)
-    const inputElement = target.closest('input, textarea, [contenteditable="true"]') || target;
-    
-    // Remove the attribute from other elements first
-    document.querySelectorAll('[data-last-right-clicked]').forEach(el => {
-      el.removeAttribute('data-last-right-clicked');
-    });
-    
-    // Mark this element as the one that was right-clicked
-    inputElement.setAttribute('data-last-right-clicked', 'true');
+function saveToContentOS(type, getData, button) {
+  const data = getData();
+  if (!data.url) {
+    showToast("Couldn't find this video's link.", true);
+    return;
   }
-}, true);
-
-// Function to create and inject the AI News button in the modal
-function createAINewsButtonInModal(modalContainer, editorElement) {
-  // Check if button already exists in this modal
-  if (modalContainer.querySelector('.ai-news-button')) {
+  if (!chrome.runtime?.id) {
+    showToast('The extension was updated. Refresh this page and try again.', true);
     return;
   }
 
-  // Create button element
-  const button = document.createElement('button');
-  button.className = 'ai-news-button';
-  button.textContent = 'Write AI News';
-  button.type = 'button';
-  
-  // Style the button - positioned near the editor area
-  button.style.cssText = `
-    position: absolute !important;
-    bottom: 16px !important;
-    right: 16px !important;
-    background: #111827 !important;
-    color: #fff !important;
-    border: none !important;
-    padding: 8px 16px !important;
-    border-radius: 6px !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-    cursor: pointer !important;
-    z-index: 999999 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
-    transition: background 0.2s ease !important;
-    pointer-events: auto !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  `;
-  
-  // Hover effect
-  button.addEventListener('mouseenter', () => {
-    button.style.background = '#1f2937';
-  });
-  button.addEventListener('mouseleave', () => {
-    button.style.background = '#111827';
-  });
-  
-  // Click handler
-  button.addEventListener('click', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('[AI News Button] Button clicked!');
-    console.log('[AI News Button] Editor element:', editorElement);
-    
-    // Mark the editor element as the target
-    document.querySelectorAll('[data-last-right-clicked]').forEach(el => {
-      el.removeAttribute('data-last-right-clicked');
-    });
-    if (editorElement) {
-      editorElement.setAttribute('data-last-right-clicked', 'true');
-      console.log('[AI News Button] Marked editor as target:', editorElement.className);
+  button.disabled = true;
+  setLabel(button, 'Saving...');
+  chrome.runtime.sendMessage({ action: 'save', type, ...data }, (response) => {
+    button.disabled = false;
+    if (chrome.runtime.lastError || !response) {
+      resetLabel(button);
+      showToast('The extension was updated. Refresh this page and try again.', true);
+    } else if (response.ok) {
+      setLabel(button, 'Saved');
+      showToast(type === 'idea' ? 'Added to your Ideas board.' : 'Saved to your Inspiration.');
     } else {
-      console.warn('[AI News Button] No editor element found!');
-    }
-    
-    // Send message to background script
-    try {
-      // Check if extension context is still valid
-      if (!chrome.runtime || !chrome.runtime.id) {
-        showErrorToast('Extension context invalidated. Please reload this page and try again.');
-        console.error('[AI News Button] Extension context invalidated');
-        return;
-      }
-      
-      console.log('[AI News Button] Sending message to background script...');
-      chrome.runtime.sendMessage({ action: 'generate-ai-news' }, (response) => {
-        if (chrome.runtime.lastError) {
-          const errorMsg = chrome.runtime.lastError.message;
-          console.error('[AI News Button] Error sending message:', errorMsg);
-          
-          if (errorMsg.includes('Extension context invalidated') || 
-              errorMsg.includes('message port closed')) {
-            showErrorToast('Extension was reloaded. Please refresh this page and try again.');
-          } else {
-            showErrorToast('Failed to connect to extension. Please try again.');
-          }
-        } else {
-          console.log('[AI News Button] Message sent successfully, response:', response);
-        }
-      });
-    } catch (error) {
-      console.error('[AI News Button] Error sending message to background:', error);
-      if (error.message && error.message.includes('Extension context invalidated')) {
-        showErrorToast('Extension was reloaded. Please refresh this page and try again.');
-      } else {
-        showErrorToast('An error occurred. Please try again.');
-      }
+      resetLabel(button);
+      showToast(response.error, true);
     }
   });
-  
-  // Make sure the modal container is relatively positioned
-  const computedStyle = window.getComputedStyle(modalContainer);
-  if (computedStyle.position === 'static' || computedStyle.position === '') {
-    modalContainer.style.position = 'relative';
-  }
-  
-  // Append button to the modal container
-  modalContainer.appendChild(button);
-  console.log('[AI News Button] Added button to modal container');
 }
 
-// Function to find and add buttons to modals
-function addButtonsToModals() {
-  // Make sure body exists
-  if (!document.body) {
-    return;
-  }
+const ICONS = {
+  idea: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  inspo: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>'
+};
 
-  // Look for the Skool post creation modal
-  // Based on the HTML structure: div with class containing "PostBodyWrapper"
-  const postBodyWrapper = document.querySelector('[class*="PostBodyWrapper"]');
-  
-  if (postBodyWrapper) {
-    // Check if we've already added a button to this modal
-    if (postBodyWrapper.dataset.aiNewsButtonAdded) {
-      return;
-    }
-    
-    // Find the Skool editor inside this modal
-    const skoolEditor = postBodyWrapper.querySelector('.skool-editor, .tiptap.ProseMirror.skool-editor, [contenteditable="true"].tiptap.ProseMirror');
-    
-    if (skoolEditor) {
-      console.log('[AI News Button] Found Skool post modal with editor');
-      postBodyWrapper.dataset.aiNewsButtonAdded = 'true';
-      createAINewsButtonInModal(postBodyWrapper, skoolEditor);
-      return;
-    }
-  }
-  
-  // Fallback: Look for any modal/dialog that contains a Skool editor
-  const allModals = document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="Modal"], [class*="Dialog"]');
-  
-  for (const modal of allModals) {
-    if (modal.dataset.aiNewsButtonAdded) {
-      continue;
-    }
-    
-    const skoolEditor = modal.querySelector('.skool-editor, .tiptap.ProseMirror.skool-editor, [contenteditable="true"].tiptap.ProseMirror');
-    
-    if (skoolEditor) {
-      console.log('[AI News Button] Found modal with Skool editor');
-      modal.dataset.aiNewsButtonAdded = 'true';
-      createAINewsButtonInModal(modal, skoolEditor);
-      return;
-    }
-  }
-  
-  // Last resort: Look for Skool editor anywhere and find its container
-  const skoolEditor = document.querySelector('.skool-editor, .tiptap.ProseMirror.skool-editor');
-  
-  if (skoolEditor) {
-    // Find a suitable container (look for PostBodyWrapper or similar)
-    let container = skoolEditor.closest('[class*="PostBodyWrapper"]') || 
-                    skoolEditor.closest('[class*="PostBody"]') ||
-                    skoolEditor.closest('[role="dialog"]') ||
-                    skoolEditor.closest('[class*="modal"]') ||
-                    skoolEditor.parentElement;
-    
-    if (container && !container.dataset.aiNewsButtonAdded) {
-      console.log('[AI News Button] Found Skool editor, adding button to container');
-      container.dataset.aiNewsButtonAdded = 'true';
-      createAINewsButtonInModal(container, skoolEditor);
-    }
-  }
+// The pill buttons show the long label; the round Reels buttons show the short one.
+function setLabel(button, text, short = text) {
+  button.querySelector('.cos-label').textContent = text;
+  button.querySelector('.cos-short').textContent = short;
 }
 
-// Function to initialize the observer
-function initializeObserver() {
-  if (!document.body) {
-    // Wait for body to be available
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initializeObserver);
-    } else {
-      // Use a small delay to wait for body
-      setTimeout(initializeObserver, 10);
-    }
-    return;
-  }
+function resetLabel(button) {
+  setLabel(button, button.dataset.label, button.dataset.short);
+}
 
-  console.log('[AI News Button] Initializing observer');
-  
-  // Initial scan with a small delay to let page load
-  setTimeout(() => {
-    addButtonsToModals();
+function createActions(getData) {
+  const actions = document.createElement('div');
+  actions.className = 'cos-actions';
+  for (const [type, label, short] of [['idea', '+ Idea', 'Idea'], ['inspo', 'Save inspo', 'Inspo']]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `cos-${type}`;
+    button.innerHTML = `<span class="cos-icon">${ICONS[type]}</span><span class="cos-label"></span><span class="cos-short"></span>`;
+    button.dataset.label = label;
+    button.dataset.short = short;
+    resetLabel(button);
+    button.title = type === 'idea' ? 'Add to the Ideas column of your content board' : 'Save the title and thumbnail to your Inspiration';
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      saveToContentOS(type, getData, button);
+    });
+    actions.appendChild(button);
+  }
+  return actions;
+}
+
+// One floating pair of buttons follows whatever find() matches under the mouse,
+// pinned to the top-left of its anchor (the thumbnail or post media).
+function initHoverActions(find) {
+  let current = null;
+  const floating = createActions(() => current?.getData() || { url: '' });
+  floating.classList.add('cos-floating');
+
+  let hideTimer;
+
+  const place = () => {
+    const rect = current.anchor.getBoundingClientRect();
+    floating.classList.toggle('cos-side', Boolean(current.side));
+    if (!current.side) {
+      floating.style.top = `${rect.top + 8}px`;
+      floating.style.left = `${rect.left + 8}px`;
+      return;
+    }
+    // To the right of the media, centred over vidIQ's panel when it's there.
+    const vidiq = findVidiqPanel(rect);
+    const centre = vidiq ? vidiq.centre : rect.right + 48;
+    floating.style.left = `${centre - floating.offsetWidth / 2}px`;
+    floating.style.top = vidiq
+      ? `${Math.max(rect.top + 8, vidiq.top - floating.offsetHeight - 24)}px`
+      : `${rect.top + 8}px`;
+  };
+
+  const update = (found) => {
+    if (!found) {
+      // A short delay lets the mouse cross the gap to side-placed buttons.
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        current = null;
+        floating.remove();
+      }, current?.side ? 400 : 0);
+      return;
+    }
+    clearTimeout(hideTimer);
+    if (found.key !== current?.key) {
+      floating.querySelectorAll('button').forEach(resetLabel);
+    }
+    current = found;
+    if (!floating.isConnected) document.body.appendChild(floating);
+    place();
+  };
+
+  document.addEventListener('mouseover', (e) => {
+    if (!(e.target instanceof Element) || e.target.closest('.cos-floating, #video-preview')) {
+      clearTimeout(hideTimer);
+      return;
+    }
+    update(find(e.target, e.clientX, e.clientY));
+  }, true);
+
+  window.addEventListener('scroll', () => { if (current) place(); }, true);
+  return update;
+}
+
+// YouTube: the hover preview player is drawn over the card, so the buttons can't live inside it.
+function initYouTubeActions() {
+  if (!window.location.hostname.includes('youtube.com')) return;
+
+  initHoverActions((target) => {
+    let card = target.closest(VIDEO_SELECTOR);
+    while (card?.parentElement?.closest(VIDEO_SELECTOR)) card = card.parentElement.closest(VIDEO_SELECTOR);
+    if (!card) return null;
+    return {
+      key: card,
+      anchor: card.querySelector('#thumbnail, ytd-thumbnail, yt-thumbnail-view-model, a[href*="/watch?v="], a[href*="/shorts/"]') || card,
+      getData: () => {
+        const link = card.querySelector('a#thumbnail[href], a[href*="/watch?v="], a[href*="/shorts/"]');
+        const titleEl = card.querySelector('#video-title, h3 [title], h3');
+        return {
+          url: link ? new URL(link.getAttribute('href'), location.origin).href : '',
+          title: (titleEl?.getAttribute('title') || titleEl?.textContent || '').trim(),
+          outlier: getOutlierValue(card)
+        };
+      }
+    };
+  });
+}
+
+// Instagram: hover a grid tile, or a post's photo or video in the feed or on a post page.
+const IG_POST_PATH = /^\/(?:[^/]+\/)?(p|reels?)\/[^/]+/;
+const IG_POST_LINK = 'a[href*="/p/"], a[href*="/reel/"]';
+
+function instagramCaption() {
+  const match = document.title.match(/on Instagram: "([\s\S]+?)"\s*$/);
+  return match ? match[1].trim().slice(0, 120) : '';
+}
+
+function postPath(href) {
+  return href?.match(/\/(p|reel)\/[^/?#]+/)?.[0] || null;
+}
+
+// The post a piece of media belongs to: the one post link in its nearest container,
+// or the page itself on a post or reel page.
+function instagramPostUrl(media) {
+  for (let el = media; el && el !== document.body; el = el.parentElement) {
+    const paths = new Set([...el.querySelectorAll(IG_POST_LINK)].map((a) => postPath(a.getAttribute('href'))).filter(Boolean));
+    if (paths.size === 1) return `${location.origin}${[...paths][0]}/`;
+    if (paths.size > 1) break;
+  }
+  return IG_POST_PATH.test(location.pathname) ? location.origin + location.pathname : '';
+}
+
+// vidIQ's panel beside a reel: its top edge, and the centre of its biggest element
+// (the pill, not the small "IQ" badge on its corner).
+function findVidiqPanel(mediaRect) {
+  let top = Infinity;
+  let biggest = null;
+  for (const el of document.querySelectorAll('[class*="vidiq" i], [id*="vidiq" i]')) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || r.left < mediaRect.right - 20 || r.left > mediaRect.right + 200) continue;
+    if (r.bottom < mediaRect.top || r.top > mediaRect.bottom) continue;
+    top = Math.min(top, r.top);
+    if (!biggest || r.width * r.height > biggest.width * biggest.height) biggest = r;
+  }
+  return biggest && { top, centre: biggest.left + biggest.width / 2 };
+}
+
+function findInstagramMedia(target, x, y) {
+  let el = target;
+  for (let depth = 0; el && el !== document.body && depth < 6; depth++, el = el.parentElement) {
+    const candidates = el.matches('img, video') ? [el] : el.querySelectorAll('video, img');
+    for (const media of candidates) {
+      const rect = media.getBoundingClientRect();
+      const underMouse = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      if (underMouse && rect.width >= 150 && rect.height >= 150) return media;
+    }
+  }
+  return null;
+}
+
+function initInstagram() {
+  if (!window.location.hostname.includes('instagram.com')) return;
+
+  // On the Reels page the buttons stay beside whichever reel is in view, no hover needed.
+  const reelInView = () => {
+    if (!location.pathname.startsWith('/reels/')) return null;
+    const x = innerWidth / 2;
+    const y = innerHeight / 2;
+    const video = [...document.querySelectorAll('video')].find((v) => {
+      const r = v.getBoundingClientRect();
+      return r.top <= y && r.bottom >= y && r.width >= 150;
+    }) || null;
+    return video && {
+      key: video,
+      anchor: video,
+      side: true,
+      getData: () => ({ url: location.origin + location.pathname, title: instagramCaption() })
+    };
+  };
+
+  const update = initHoverActions((target, x, y) => {
+    if (location.pathname.startsWith('/reels/')) return reelInView();
+
+    const tile = target.closest(IG_POST_LINK);
+    if (tile && postPath(tile.getAttribute('href'))) {
+      return {
+        key: tile,
+        anchor: tile,
+        getData: () => ({ url: `${location.origin}${postPath(tile.getAttribute('href'))}/`, title: '' })
+      };
+    }
+
+    const media = findInstagramMedia(target, x, y);
+    const url = media && instagramPostUrl(media);
+    if (!url) return null;
+    return {
+      key: media,
+      anchor: media,
+      getData: () => ({ url, title: url.startsWith(location.origin + location.pathname) ? instagramCaption() : '' })
+    };
+  });
+
+  // ponytail: polls twice a second; Reels swaps videos without events we can rely on.
+  let wasOnReels = false;
+  setInterval(() => {
+    const onReels = location.pathname.startsWith('/reels/');
+    if (onReels || wasOnReels) update(reelInView());
+    wasOnReels = onReels;
   }, 500);
-
-  // Watch for dynamically added modals
-  const observer = new MutationObserver(() => {
-    // Debounce to avoid too many calls
-    if (observer.timeout) {
-      clearTimeout(observer.timeout);
-    }
-    observer.timeout = setTimeout(() => {
-      addButtonsToModals();
-    }, 300);
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-  
-  // Also try again after a longer delay for slow-loading pages
-  setTimeout(() => {
-    console.log('[AI News Button] Delayed scan');
-    addButtonsToModals();
-  }, 2000);
 }
 
-// Start initialization
-initializeObserver();
-
+injectStyles();
+initOutlierFilter();
+initYouTubeActions();
+initInstagram();

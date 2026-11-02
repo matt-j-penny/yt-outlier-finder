@@ -1,86 +1,5 @@
-const YT_OEMBED = 'https://www.youtube.com/oembed';
-
-function extractYouTubeUrlCandidate(raw) {
-  if (!raw) return '';
-  return raw.trim();
-}
-
-async function fetchYouTubeMeta(youtubeUrl) {
-  const url = new URL(YT_OEMBED);
-  url.searchParams.set('url', youtubeUrl);
-  url.searchParams.set('format', 'json');
-
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('Failed to fetch video details');
-  return res.json();
-}
-
-function setMessage(text, isError = false) {
-  const msg = document.getElementById('message');
-  msg.textContent = text;
-  msg.style.color = isError ? '#b91c1c' : '#374151';
-}
-
-async function sendToTargetWebhook(videoData) {
-  return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(['targetWebhookUrl'], async (items) => {
-      const webhookUrl = (items.targetWebhookUrl || '').trim();
-      if (!webhookUrl) {
-        reject(new Error('Target webhook URL missing. Set it in Options.'));
-        return;
-      }
-
-      const body = [
-        {
-          videoURL: videoData.videoURL,
-          title: videoData.title || null,
-          thumbnailUrl: videoData.thumbnailUrl || null,
-          outlierMultiple: null
-        }
-      ];
-
-      try {
-        const res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          const err = await res.text().catch(() => '');
-          reject(new Error(`Webhook error (${res.status}): ${err || res.statusText}`));
-          return;
-        }
-
-        // Try to extract a useful URL from response for clickable toast
-        let responseUrl = null;
-        try {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            responseUrl = data[0].url || data[0].notionUrl || data[0].notion_url;
-          } else if (data) {
-            responseUrl = data.url || data.notionUrl || data.notion_url || (data.data && (data.data.url || data.data.notionUrl));
-          }
-        } catch (e) {
-          // non-JSON or no url is fine
-        }
-
-        resolve(responseUrl);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-  const urlInput = document.getElementById('urlInput');
-  const previewBtn = document.getElementById('previewBtn');
-  const openOptions = document.getElementById('openOptions');
-  const preview = document.getElementById('preview');
-  const thumb = document.getElementById('thumb');
-  const titleEl = document.getElementById('title');
-  const sendBtn = document.getElementById('sendBtn');
+  const modeButtons = document.querySelectorAll('.mode-switch button');
   
   // Outlier filter elements
   const outlierToggle = document.getElementById('outlierToggle');
@@ -100,8 +19,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewMin = document.getElementById('viewMin');
   const viewMax = document.getElementById('viewMax');
 
+  const showMode = (mode) => {
+    modeButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    document.getElementById('modeHint').textContent = mode === 'hide'
+      ? "Videos that don't match every filter below are hidden."
+      : 'Videos that match every filter below get a red background.';
+  };
+
+  chrome.storage.local.get('apiKey', ({ apiKey }) => {
+    document.getElementById('keyNotice').classList.toggle('hidden', Boolean(apiKey));
+  });
+
   // Load saved filter settings
   chrome.storage.sync.get([
+    'filterMode',
     'outlierFilterEnabled',
     'outlierMinValue',
     'subFilterEnabled',
@@ -111,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'viewMinValue',
     'viewMaxValue'
   ], (items) => {
+    showMode(items.filterMode || 'highlight');
+
     // Outlier settings
     const outlierEnabled = items.outlierFilterEnabled || false;
     const outlierMinVal = items.outlierMinValue || 5;
@@ -219,72 +152,17 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.set({ viewMaxValue: viewMax.value });
   });
 
-  openOptions.addEventListener('click', (e) => {
-    e.preventDefault();
-    chrome.runtime.openOptionsPage();
+  modeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      showMode(button.dataset.mode);
+      chrome.storage.sync.set({ filterMode: button.dataset.mode });
+    });
   });
 
-  previewBtn.addEventListener('click', async () => {
-    setMessage('');
-    preview.classList.add('hidden');
-    titleEl.textContent = '';
-    thumb.src = '';
-
-    const input = extractYouTubeUrlCandidate(urlInput.value);
-    if (!input) {
-      setMessage('Please enter a YouTube URL.', true);
-      return;
-    }
-
-    previewBtn.disabled = true;
-    try {
-      const meta = await fetchYouTubeMeta(input);
-      titleEl.textContent = meta.title || 'Untitled video';
-      thumb.src = meta.thumbnail_url;
-      preview.dataset.videoUrl = input;
-      preview.dataset.title = meta.title || '';
-      preview.dataset.thumbnailUrl = meta.thumbnail_url || '';
-      preview.classList.remove('hidden');
-    } catch (e) {
-      setMessage(e.message || 'Unable to fetch video details.', true);
-    } finally {
-      previewBtn.disabled = false;
-    }
-  });
-
-  sendBtn.addEventListener('click', async () => {
-    setMessage('Sending to webhook...');
-    sendBtn.disabled = true;
-    try {
-      const responseUrl = await sendToTargetWebhook({
-        videoURL: preview.dataset.videoUrl || '',
-        title: preview.dataset.title || null,
-        thumbnailUrl: preview.dataset.thumbnailUrl || null
-      });
-      if (responseUrl) {
-        setMessage('Sent! Click to open response.');
-        // Make the message area clickable
-        const msgEl = document.getElementById('message');
-        msgEl.style.cursor = 'pointer';
-        msgEl.style.textDecoration = 'underline';
-        const openHandler = () => {
-          window.open(responseUrl, '_blank');
-          msgEl.removeEventListener('click', openHandler);
-          msgEl.style.cursor = '';
-          msgEl.style.textDecoration = '';
-        };
-        msgEl.addEventListener('click', openHandler, { once: true });
-      } else {
-        setMessage('Sent to webhook.');
-      }
-    } catch (e) {
-      setMessage(e.message || 'Failed to send to webhook.', true);
-    } finally {
-      sendBtn.disabled = false;
-    }
+  document.querySelectorAll('.open-options').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.runtime.openOptionsPage();
+    });
   });
 });
-
-
-
-
