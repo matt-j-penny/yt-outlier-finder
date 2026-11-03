@@ -154,7 +154,10 @@ function getOutlierValue(videoContainer) {
     '[data-react-popover="OutlierPopover"]',
     '[href*="outliers"][href*="outlier_score"] p',
     '[href*="outliers"][href*="outlier_score"]',
-    '.inline-video-stats [data-react-popover*="Outlier"] p'
+    '[data-hover-popover="OutlierPopover"]',
+    '.inline-video-stats [data-react-popover*="Outlier"] p',
+    '.inline-video-metric-badges',
+    '.inline-video-badges'
   ];
 
   for (const selector of selectors) {
@@ -166,7 +169,9 @@ function getOutlierValue(videoContainer) {
   }
 
   // Fallback: search all inline stats text for a value like "1.1x" or ">100x"
-  const inlineStats = videoContainer.querySelector('.inline-video-stats');
+  const inlineStats = videoContainer.querySelector(
+    '.inline-video-stats, .inline-video-metric-badges, .inline-video-badges'
+  );
   if (inlineStats) {
     const value = parseOutlierText(inlineStats.textContent);
     if (value !== null) return value;
@@ -212,7 +217,15 @@ function getSubscriberCount(videoContainer) {
       }
     }
   }
-  
+
+  // Method 4: Current vidIQ markup renders "30.3k subscribers" without a subscriber class,
+  // often with the number and label in sibling spans, so check their parent div too.
+  for (const candidate of videoContainer.querySelectorAll('span, p, a, div')) {
+    if (!/subscriber/i.test(candidate.textContent)) continue;
+    const parsed = parseSubscriberCount(candidate.textContent);
+    if (parsed !== null) return parsed;
+  }
+
   return null;
 }
 
@@ -237,7 +250,6 @@ function getViewCount(videoContainer) {
   return null;
 }
 
-// Videos without data for the subscriber or views filter are treated as matching.
 function matchesFilters(container) {
   if (outlierFilterEnabled) {
     const outlierValue = getOutlierValue(container);
@@ -246,12 +258,12 @@ function matchesFilters(container) {
 
   if (subFilterEnabled) {
     const subCount = getSubscriberCount(container);
-    if (subCount !== null && (subCount < subMinValue || subCount > subMaxValue)) return false;
+    if (subCount === null || (subCount < subMinValue || subCount > subMaxValue)) return false;
   }
 
   if (viewFilterEnabled) {
     const viewCount = getViewCount(container);
-    if (viewCount !== null && (viewCount < viewMinValue || viewCount > viewMaxValue)) return false;
+    if (viewCount === null || (viewCount < viewMinValue || viewCount > viewMaxValue)) return false;
   }
 
   return true;
