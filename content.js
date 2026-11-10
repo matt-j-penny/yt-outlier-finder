@@ -279,6 +279,20 @@ function setHidden(container, hidden) {
   }
 }
 
+// Inline styles, like setHidden: the injected stylesheet doesn't reliably survive on YouTube.
+function setHighlighted(container, on) {
+  if (on) {
+    const dark = document.documentElement.hasAttribute('dark');
+    container.setAttribute(HIGHLIGHT_ATTR, 'true');
+    container.style.setProperty('background-color', dark ? 'rgba(220, 38, 38, 0.2)' : '#fee2e2', 'important');
+    container.style.setProperty('border-radius', '8px', 'important');
+    container.style.setProperty('box-shadow', dark ? 'inset 0 0 0 1px rgba(248, 113, 113, 0.45)' : 'inset 0 0 0 1px #fecaca', 'important');
+  } else if (container.hasAttribute(HIGHLIGHT_ATTR)) {
+    container.removeAttribute(HIGHLIGHT_ATTR);
+    ['background-color', 'border-radius', 'box-shadow'].forEach(p => container.style.removeProperty(p));
+  }
+}
+
 // Apply the filter to all videos on the page
 function applyOutlierFilter() {
   if (!window.location.hostname.includes('youtube.com')) return;
@@ -290,11 +304,7 @@ function applyOutlierFilter() {
 
     const matches = anyFilterEnabled && matchesFilters(container);
     setHidden(container, anyFilterEnabled && filterMode === 'hide' && !matches);
-    if (matches && filterMode === 'highlight') {
-      container.setAttribute(HIGHLIGHT_ATTR, 'true');
-    } else {
-      container.removeAttribute(HIGHLIGHT_ATTR);
-    }
+    setHighlighted(container, matches && filterMode === 'highlight');
   });
 }
 
@@ -304,18 +314,6 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = 'outlier-finder-style';
   style.textContent = `
-    [${HIGHLIGHT_ATTR}="true"] {
-      background-color: #fee2e2 !important;
-      border-radius: 8px;
-      box-shadow: inset 0 0 0 1px #fecaca;
-    }
-
-    html[dark] [${HIGHLIGHT_ATTR}="true"],
-    html[dark="true"] [${HIGHLIGHT_ATTR}="true"] {
-      background-color: rgba(220, 38, 38, 0.2) !important;
-      box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.45);
-    }
-
     .cos-actions {
       display: flex;
       gap: 6px;
