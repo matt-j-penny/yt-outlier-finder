@@ -318,6 +318,26 @@ function injectStyles() {
       display: flex;
       gap: 6px;
     }
+    .cos-actions button.cos-folders { padding: 6px 8px; margin-left: -4px; }
+    .cos-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      min-width: 160px;
+      max-height: 260px;
+      overflow-y: auto;
+      padding: 4px;
+      border-radius: 8px;
+      background: #111827;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      font: 500 12px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #fff;
+    }
+    .cos-side .cos-menu { top: auto; bottom: 0; right: calc(100% + 8px); }
+    .cos-menu div { padding: 7px 10px; border-radius: 5px; white-space: nowrap; }
+    .cos-menu div[data-id] { cursor: pointer; }
+    .cos-menu div[data-id]:hover { background: rgba(255,255,255,0.12); }
+    .cos-menu div.cos-muted { color: #9ca3af; }
     /* One floating pair on <body>, so it sits above YouTube's hover preview and Instagram's overlays. */
     .cos-actions.cos-floating {
       position: fixed;
@@ -485,7 +505,7 @@ function showToast(message, isError = false) {
   setTimeout(() => toast.remove(), 4000);
 }
 
-function saveToContentOS(type, getData, button) {
+function saveToContentOS(type, getData, button, folder) {
   const data = getData();
   if (!data.url) {
     showToast("Couldn't find this video's link.", true);
@@ -498,14 +518,14 @@ function saveToContentOS(type, getData, button) {
 
   button.disabled = true;
   setLabel(button, 'Saving...');
-  chrome.runtime.sendMessage({ action: 'save', type, ...data }, (response) => {
+  chrome.runtime.sendMessage({ action: 'save', type, ...data, folderId: folder?.id }, (response) => {
     button.disabled = false;
     if (chrome.runtime.lastError || !response) {
       resetLabel(button);
       showToast('The extension was updated. Refresh this page and try again.', true);
     } else if (response.ok) {
       setLabel(button, 'Saved');
-      showToast(type === 'idea' ? 'Added to your Ideas board.' : 'Saved to your Inspiration.');
+      showToast(type === 'idea' ? 'Added to your Ideas board.' : folder ? `Saved to ${folder.name}.` : 'Saved to your Inspiration.');
     } else {
       resetLabel(button);
       showToast(response.error, true);
@@ -515,6 +535,7 @@ function saveToContentOS(type, getData, button) {
 
 const ICONS = {
   idea: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  folders: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11H3z"/></svg>',
   inspo: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>'
 };
 
@@ -528,10 +549,49 @@ function resetLabel(button) {
   setLabel(button, button.dataset.label, button.dataset.short);
 }
 
+function closeFolderMenu(actions) {
+  actions.querySelector('.cos-menu')?.remove();
+}
+
+// Lists Content OS folders under the ▾ button; picking one saves the inspo there.
+function toggleFolderMenu(actions, getData) {
+  if (actions.querySelector('.cos-menu')) return closeFolderMenu(actions);
+  const menu = document.createElement('div');
+  menu.className = 'cos-menu';
+  menu.innerHTML = '<div class="cos-muted">Loading folders...</div>';
+  actions.appendChild(menu);
+  if (!chrome.runtime?.id) {
+    menu.firstChild.textContent = 'Refresh this page and try again.';
+    return;
+  }
+  chrome.runtime.sendMessage({ action: 'folders' }, (response) => {
+    if (!menu.isConnected) return;
+    menu.replaceChildren();
+    const row = (text, folder) => {
+      const item = document.createElement('div');
+      item.textContent = text;
+      if (folder) {
+        item.dataset.id = folder.id;
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          closeFolderMenu(actions);
+          saveToContentOS('inspo', getData, actions.querySelector('.cos-inspo'), folder);
+        });
+      } else item.className = 'cos-muted';
+      menu.appendChild(item);
+    };
+    if (!response?.ok) return row(response?.error || 'Refresh this page and try again.');
+    if (!response.data.length) return row('No folders yet. Add them in My Saves.');
+    row('Save inspo to...');
+    response.data.forEach((folder) => row(folder.name, folder));
+  });
+}
+
 function createActions(getData) {
   const actions = document.createElement('div');
   actions.className = 'cos-actions';
-  for (const [type, label, short] of [['idea', '+ Idea', 'Idea'], ['inspo', 'Save inspo', 'Inspo']]) {
+  for (const [type, label, short] of [['idea', '+ Idea', 'Idea'], ['inspo', 'Save inspo', 'Inspo'], ['folders', '▾', 'Folder']]) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `cos-${type}`;
@@ -539,10 +599,16 @@ function createActions(getData) {
     button.dataset.label = label;
     button.dataset.short = short;
     resetLabel(button);
-    button.title = type === 'idea' ? 'Add to the Ideas column of your content board' : 'Save the title and thumbnail to your Inspiration';
+    button.title = {
+      idea: 'Add to the Ideas column of your content board',
+      inspo: 'Save the title and thumbnail to your Inspiration',
+      folders: 'Save to a folder in My Saves'
+    }[type];
     button.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (type === 'folders') return toggleFolderMenu(actions, getData);
+      closeFolderMenu(actions);
       saveToContentOS(type, getData, button);
     });
     actions.appendChild(button);
@@ -582,6 +648,7 @@ function initHoverActions(find) {
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => {
         current = null;
+        closeFolderMenu(floating);
         floating.remove();
       }, current?.side ? 400 : 0);
       return;
@@ -589,6 +656,7 @@ function initHoverActions(find) {
     clearTimeout(hideTimer);
     if (found.key !== current?.key) {
       floating.querySelectorAll('button').forEach(resetLabel);
+      closeFolderMenu(floating);
     }
     current = found;
     if (!floating.isConnected) document.body.appendChild(floating);

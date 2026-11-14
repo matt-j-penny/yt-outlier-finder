@@ -6,9 +6,21 @@ async function youtubeTitle(url) {
   return res.ok ? (await res.json()).title : '';
 }
 
-async function save({ type, url, title, outlier }) {
+async function apiKey() {
   const { apiKey } = await chrome.storage.local.get('apiKey');
   if (!apiKey) throw new Error('Add your Content OS API key in the extension settings first.');
+  return apiKey;
+}
+
+async function folders() {
+  const res = await fetch(`${CONTENT_OS}/api/inspiration/folders`, { headers: { Authorization: `Bearer ${await apiKey()}` } });
+  if (res.status === 401) throw new Error('Content OS rejected your API key. Check it in the extension settings.');
+  if (!res.ok) throw new Error(`Could not load folders (${res.status})`);
+  return (await res.json()).folders;
+}
+
+async function save({ type, url, title, outlier, folderId }) {
+  const key = await apiKey();
 
   const instagram = url.includes('instagram.com');
   const short = instagram || url.includes('/shorts/');
@@ -16,7 +28,8 @@ async function save({ type, url, title, outlier }) {
     ? ['inspiration', {
         kind: instagram ? 'instagram_post' : 'youtube_video',
         url,
-        ...(outlier ? { outlier_multiple: outlier } : {})
+        ...(outlier ? { outlier_multiple: outlier } : {}),
+        ...(folderId ? { folder_id: folderId } : {})
       }]
     : ['content-ideas', {
         name: title || (instagram ? 'Instagram post' : await youtubeTitle(url)) || url,
@@ -28,7 +41,7 @@ async function save({ type, url, title, outlier }) {
 
   const res = await fetch(`${CONTENT_OS}/api/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify(body)
   });
   if (res.status === 401) throw new Error('Content OS rejected your API key. Check it in the extension settings.');
@@ -49,9 +62,10 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action !== 'save') return;
-  save(message).then(
-    () => sendResponse({ ok: true }),
+  const run = { save, folders }[message.action];
+  if (!run) return;
+  run(message).then(
+    (data) => sendResponse({ ok: true, data }),
     (e) => sendResponse({ ok: false, error: e.message })
   );
   return true;
